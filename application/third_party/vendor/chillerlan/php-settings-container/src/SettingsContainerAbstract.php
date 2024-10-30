@@ -7,20 +7,22 @@
  * @copyright    2018 Smiley
  * @license      MIT
  */
+declare(strict_types=1);
 
 namespace chillerlan\Settings;
 
-use ReflectionClass, ReflectionProperty;
-
-use function call_user_func, call_user_func_array, get_object_vars, json_decode, json_encode, method_exists, property_exists;
+use JsonException, ReflectionClass, ReflectionProperty;
+use function array_keys, get_object_vars, json_decode, json_encode, json_last_error_msg, method_exists, property_exists;
 use const JSON_THROW_ON_ERROR;
 
 abstract class SettingsContainerAbstract implements SettingsContainerInterface{
 
 	/**
 	 * SettingsContainerAbstract constructor.
+	 *
+	 * @phpstan-param array<string, mixed> $properties
 	 */
-	public function __construct(iterable $properties = null){
+	public function __construct(?iterable $properties = null){
 
 		if(!empty($properties)){
 			$this->fromIterable($properties);
@@ -40,7 +42,7 @@ abstract class SettingsContainerAbstract implements SettingsContainerInterface{
 			$method = $trait->getShortName();
 
 			if(method_exists($this, $method)){
-				call_user_func([$this, $method]);
+				$this->{$method}();
 			}
 		}
 
@@ -58,7 +60,7 @@ abstract class SettingsContainerAbstract implements SettingsContainerInterface{
 		$method = 'get_'.$property;
 
 		if(method_exists($this, $method)){
-			return call_user_func([$this, $method]);
+			return $this->{$method}();
 		}
 
 		return $this->{$property};
@@ -76,7 +78,7 @@ abstract class SettingsContainerAbstract implements SettingsContainerInterface{
 		$method = 'set_'.$property;
 
 		if(method_exists($this, $method)){
-			call_user_func_array([$this, $method], [$value]);
+			$this->{$method}($value);
 
 			return;
 		}
@@ -93,10 +95,6 @@ abstract class SettingsContainerAbstract implements SettingsContainerInterface{
 
 	/**
 	 * @internal Checks if a property is private
-	 *
-	 * @param string $property
-	 *
-	 * @return bool
 	 */
 	protected function isPrivate(string $property):bool{
 		return (new ReflectionProperty($this, $property))->isPrivate();
@@ -124,7 +122,13 @@ abstract class SettingsContainerAbstract implements SettingsContainerInterface{
 	 * @inheritdoc
 	 */
 	public function toArray():array{
-		return get_object_vars($this);
+		$properties = [];
+
+		foreach(array_keys(get_object_vars($this)) as $key){
+			$properties[$key] = $this->__get($key);
+		}
+
+		return $properties;
 	}
 
 	/**
@@ -142,14 +146,21 @@ abstract class SettingsContainerAbstract implements SettingsContainerInterface{
 	/**
 	 * @inheritdoc
 	 */
-	public function toJSON(int $jsonOptions = null):string{
-		return json_encode($this, $jsonOptions ?? 0);
+	public function toJSON(?int $jsonOptions = null):string{
+		$json = json_encode($this, ($jsonOptions ?? 0));
+
+		if($json === false){
+			throw new JsonException(json_last_error_msg());
+		}
+
+		return $json;
 	}
 
 	/**
 	 * @inheritdoc
 	 */
 	public function fromJSON(string $json):SettingsContainerInterface{
+		/** @phpstan-var array<string, mixed> $data */
 		$data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
 
 		return $this->fromIterable($data);
@@ -157,7 +168,9 @@ abstract class SettingsContainerAbstract implements SettingsContainerInterface{
 
 	/**
 	 * @inheritdoc
+	 * @return array<string, mixed>
 	 */
+	#[\ReturnTypeWillChange]
 	public function jsonSerialize():array{
 		return $this->toArray();
 	}

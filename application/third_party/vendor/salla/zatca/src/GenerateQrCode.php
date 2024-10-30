@@ -4,6 +4,7 @@ namespace Salla\ZATCA;
 
 use chillerlan\QRCode\QRCode;
 use InvalidArgumentException;
+use chillerlan\QRCode\QROptions;
 
 class GenerateQrCode
 {
@@ -66,10 +67,14 @@ class GenerateQrCode
     /**
      * Render the QR code as base64 data image.
      *
+     * @param  array  $options  The list of options for QROption (https://github.com/chillerlan/php-qrcode)
+     * @param  string|null  $file  File string represent file path,name and extension
+     *
      * @return string
      */
-    public function render(): string
+    public function render(array $options = [], string $file = null): string
     {
-        return (new QRCode)->render($this->toBase64());
+        $options = new QROptions($options);
+        return (new QRCode($options))->render($this->toBase64(), $file);
     }
 }

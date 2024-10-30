@@ -6,7 +6,7 @@
 	"type": "library",
 	"minimum-stability": "stable",
 	"keywords": [
-		"php7", "helper", "container", "settings"
+		"php7", "helper", "container", "settings", "configuration"
 	],
 	"authors": [
 		{
@@ -24,18 +24,29 @@
 		"ext-json": "*"
 	},
 	"require-dev": {
-		"phan/phan": "^4.0",
-		"phpunit/phpunit": "^9.5"
+		"phpmd/phpmd": "^2.15",
+		"phpstan/phpstan": "^1.11",
+		"phpstan/phpstan-deprecation-rules": "^1.2",
+		"phpunit/phpunit": "^9.6",
+		"squizlabs/php_codesniffer": "^3.10"
 	},
 	"autoload": {
 		"psr-4": {
-			"chillerlan\\Settings\\": "src/"
+			"chillerlan\\Settings\\": "src"
 		}
 	},
 	"autoload-dev": {
 		"psr-4": {
-			"chillerlan\\SettingsTest\\": "tests/",
-			"chillerlan\\SettingsExamples\\": "examples/"
+			"chillerlan\\SettingsTest\\": "tests"
 		}
+	},
+	"scripts": {
+		"phpunit": "@php vendor/bin/phpunit",
+		"phpstan": "@php vendor/bin/phpstan"
+	},
+	"config": {
+		"lock": false,
+		"sort-packages": true,
+		"platform-check": true
 	}
 }
