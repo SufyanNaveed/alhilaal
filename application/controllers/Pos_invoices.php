@@ -37,6 +37,13 @@ use Salla\ZATCA\Tags\InvoiceTotalAmount;
 use Salla\ZATCA\Tags\Seller;
 use Salla\ZATCA\Tags\TaxNumber;
 
+use Salla\ZATCA\EGS; 
+use Endroid\QrCode\Logo\Logo;
+use Endroid\QrCode\Color\Color;
+use Endroid\QrCode\Label\Label;
+use Endroid\QrCode\Writer\PngWriter;
+use Endroid\QrCode\Encoding\Encoding;
+use Endroid\QrCode\ErrorCorrectionLevel;
 
 class Pos_invoices extends CI_Controller
 {
@@ -1588,66 +1595,163 @@ class Pos_invoices extends CI_Controller
     }
 
 
-    function thermal_pdf()
-    {
-        $tid = $this->input->get('id');
-        $data['id'] = $tid;
-        $data['title'] = "Invoice $tid";
-        $data['invoice'] = $this->invocies->invoice_details($tid, $this->limited);
-        $data['round_off'] = $this->custom->api_config(4);
+    // function thermal_pdf()
+    // {
+    //     $tid = $this->input->get('id');
+    //     $data['id'] = $tid;
+    //     $data['title'] = "Invoice $tid";
+    //     $data['invoice'] = $this->invocies->invoice_details($tid, $this->limited);
+    //     $data['round_off'] = $this->custom->api_config(4);
 
-        if ($data['invoice']) $data['products'] = $this->invocies->invoice_products($tid);
-        if ($data['invoice']) $data['employee'] = $this->invocies->employee($data['invoice']['eid']);
-        $this->load->model('billing_model', 'billing');
-        $online_pay = $this->billing->online_pay_settings();
-        if ($online_pay['enable'] == 1) {
-            $token = hash_hmac('ripemd160', $tid, $this->config->item('encryption_key'));
-            $data['qrc'] = 'pos_' . date('Y_m_d_H_i_s') . '_.png';
-            // $qrCode = new QrCode(base_url('billing/view?id=' . $tid . '&itype=inv&token=' . $token));
-            $loc = location($data['invoice']['loc']);
-            $generatedString = GenerateQrCode::fromArray([
-                new Seller($loc['cname']),   
-                new TaxNumber($loc['taxid']), 
-                new InvoiceDate(date("Y-m-d", strtotime($data['invoice']['invoicedate'])). ' ' . date('H:i:s')),
-                new InvoiceTotalAmount($data['invoice']['total']), 
-                new InvoiceTaxAmount($data['invoice']['tax'])
-            ])->toBase64();
+    //     if ($data['invoice']) $data['products'] = $this->invocies->invoice_products($tid);
+    //     if ($data['invoice']) $data['employee'] = $this->invocies->employee($data['invoice']['eid']);
+    //     $this->load->model('billing_model', 'billing');
+    //     $online_pay = $this->billing->online_pay_settings();
+    //     if ($online_pay['enable'] == 1) {
+    //         $token = hash_hmac('ripemd160', $tid, $this->config->item('encryption_key'));
+    //         $data['qrc'] = 'pos_' . date('Y_m_d_H_i_s') . '_.png';
+    //         // $qrCode = new QrCode(base_url('billing/view?id=' . $tid . '&itype=inv&token=' . $token));
+    //         $loc = location($data['invoice']['loc']);
+    //         $generatedString = GenerateQrCode::fromArray([
+    //             new Seller($loc['cname']),   
+    //             new TaxNumber($loc['taxid']), 
+    //             new InvoiceDate(date("Y-m-d", strtotime($data['invoice']['invoicedate'])). ' ' . date('H:i:s')),
+    //             new InvoiceTotalAmount($data['invoice']['total']), 
+    //             new InvoiceTaxAmount($data['invoice']['tax'])
+    //         ])->toBase64();
 
-            $qrCode = new QrCode($generatedString);
-            //header('Content-Type: '.$qrCode->getContentType());
-            //echo $qrCode->writeString();
-            $qrCode->writeFile(FCPATH . 'userfiles/pos_temp/' . $data['qrc']);
+    //         //echo '<pre>'; print_r($generatedString); exit;
+    //         $qrCode = new QrCode($generatedString);
+    //         //header('Content-Type: '.$qrCode->getContentType());
+    //         //echo $qrCode->writeString();
+    //         $qrCode->writeFile(FCPATH . 'userfiles/pos_temp/' . $data['qrc']);
+    //     }
+    //     // boost the memory limit if it's low ;)
+    //     ini_set('memory_limit', '64M');
+    //     // load library
+    //     $this->load->library('pdf');
+    //     $this->pheight = 0;
+    //     $this->load->library('pdf');
+    //     $pdf = $this->pdf->load_thermal();
+    //     // retrieve data from model or just static date
+    //     $data['title'] = "items";
+    //     $pdf->allow_charset_conversion = true;  // Set by default to TRUE
+    //     $pdf->charset_in = 'UTF-8';
+    //     //   $pdf->SetDirectionality('rtl'); // Set lang direction for rtl lang
+    //     $pdf->autoLangToFont = true;
+    //     $html = $this->load->view('print_files/pos_pdf_compact', $data, true);
+    //     $h = 160 + $this->pheight;
+    //     //  $pdf->_setPageSize(array(70, $h), $this->orientation);
+    //     $pdf->_setPageSize(array(70, $h), $pdf->DefOrientation);
+    //     $pdf->WriteHTML($html);
+    //     // render the view into HTML
+    //     // write the HTML into the PDF
+    //     $file_name = preg_replace('/[^A-Za-z0-9]+/', '-', 'PosInvoice_' . $data['invoice']['name'] . '_' . $data['invoice']['tid']);
+    //     if ($this->input->get('d')) {
+    //         $pdf->Output($file_name . '.pdf', 'D');
+    //     } else {
+    //         $pdf->Output($file_name . '.pdf', 'I');
+    //     }
+
+    //     unlink('userfiles/pos_temp/' . $data['qrc']);
+    // }
+
+
+        function thermal_pdf(){  
+            
+            $line_item = [
+                'id' => '1',
+                'name' => 'Sulaman Khan',
+                'quantity' => 1,
+                'tax_exclusive_price' => 10,
+                'VAT_percent' => 0.15,
+                'other_taxes' => [
+                ],
+                'discounts' => [
+                    //         ['amount' => 2, 'reason' => 'A discount'],
+                ],
+            ];
+            
+            $egs_unit = [
+                'uuid' => '6f4d20e0-6bfe-4a80-9389-7dabe6620f12',
+                'custom_id' => 'EGS1-886431145',
+                'model' => 'IOS',
+                'CRN_number' => '301121971500003',
+                'VAT_name' => 'Qr',
+                'VAT_number' => '301121971500003',
+                'location' => [
+                    'city' => 'Lahore',
+                    'city_subdivision' => 'Est',
+                    'street' => 'King Fahahd st',
+                    'plot_identification' => '0000',
+                    'building' => '0000',
+                    'postal_zone' => '31952',
+                ],
+                'branch_name' => 'My Branch Name',
+                'branch_industry' => 'Food',
+                'cancelation' => [
+                    'cancelation_type' => 'INVOICE',
+                    'canceled_invoice_number' => '',
+                ],
+            ];
+            $invoice = [
+                'invoice_counter_number' => 1,
+                'invoice_serial_number' => 'EGS1-886431145-1',
+                'issue_date' => '2022-08-17',
+                'issue_time' => '17:41:08',
+                'previous_invoice_hash' => 'NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==', // AdditionalDocumentReference/PIH
+                'line_items' => [
+                    $line_item,
+                ],
+            ];
+            
+            $egs = new EGS($egs_unit);
+            
+            // Production set to false.
+            $egs->production = false;
+            
+            // Generate private key & csr
+            list($private_key, $csr) = $egs->generateNewKeysAndCSR('Qr');
+            
+            // Make an request to issue  compliance certificate
+            list($request_id, $binary_security_token, $secret) = $egs->issueComplianceCertificate('123345', $csr);
+            
+            // Sing invoice xml
+            list($signed_invoice_string, $invoice_hash, $qr) = $egs->signInvoice($invoice, $egs_unit, $binary_security_token, $private_key);
+            
+            // Check fatoora is created invoice is correct or not.
+            $invoiceCompliance = $egs->checkInvoiceCompliance($signed_invoice_string, $invoice_hash, $binary_security_token, $secret);
+            //echo '<pre>';
+            //print_r(json_decode($invoiceCompliance));
+            //dd("");
+            
+            
+            $qrCode = new QrCode();
+            echo "</br>";
+            header('Contert-Type: application/' . $qrCode->getContentType());
+            
+            // Generate QR Code
+            $qrCode = QrCode::create($qr)
+                ->setEncoding(new Encoding('UTF-8'))
+                ->setErrorCorrectionLevel(ErrorCorrectionLevel::High)
+                ->setSize(300)
+                ->setMargin(10)
+                ->setForegroundColor(new Color(0, 0, 0))
+                ->setBackgroundColor(new Color(255, 255, 255));
+            
+            // Save QR Code to file
+            $writer = new PngWriter();
+            
+            $label = Label::create('Sulaman Khan')
+                ->setTextColor(new Color(255, 0, 0));
+            
+            $result = $writer->write($qrCode);
+            $result->saveToFile(__DIR__ . '/assets/phase-2.png');
+            
+            header('Content-Type: ' . $result->getMimeType());
+            echo $result->getString();
+            
         }
-        // boost the memory limit if it's low ;)
-        ini_set('memory_limit', '64M');
-        // load library
-        $this->load->library('pdf');
-        $this->pheight = 0;
-        $this->load->library('pdf');
-        $pdf = $this->pdf->load_thermal();
-        // retrieve data from model or just static date
-        $data['title'] = "items";
-        $pdf->allow_charset_conversion = true;  // Set by default to TRUE
-        $pdf->charset_in = 'UTF-8';
-        //   $pdf->SetDirectionality('rtl'); // Set lang direction for rtl lang
-        $pdf->autoLangToFont = true;
-        $html = $this->load->view('print_files/pos_pdf_compact', $data, true);
-        $h = 160 + $this->pheight;
-        //  $pdf->_setPageSize(array(70, $h), $this->orientation);
-        $pdf->_setPageSize(array(70, $h), $pdf->DefOrientation);
-        $pdf->WriteHTML($html);
-        // render the view into HTML
-        // write the HTML into the PDF
-        $file_name = preg_replace('/[^A-Za-z0-9]+/', '-', 'PosInvoice_' . $data['invoice']['name'] . '_' . $data['invoice']['tid']);
-        if ($this->input->get('d')) {
-            $pdf->Output($file_name . '.pdf', 'D');
-        } else {
-            $pdf->Output($file_name . '.pdf', 'I');
-        }
-
-        unlink('userfiles/pos_temp/' . $data['qrc']);
-    }
-
 
     public function set_coupon()
     {

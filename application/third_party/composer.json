@@ -10,6 +10,7 @@
         "phpoffice/phpspreadsheet": "^1.3",
         "mike42/escpos-php": "^2.0",
         "collizo4sky/omnipay-2checkout": "^1.6",
-        "salla/zatca": "^2.0"
+        "salla/zatca": "^2.0",
+        "endroid/qrcode": "^4.6"
     }
 }
